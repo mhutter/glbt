@@ -5,6 +5,7 @@ edition = "2021"
 repository = "https://github.com/mhutter/glbt"
 
 [dependencies]
+codee = { version = "0.1.2", features = ["json_serde"] }
 console_error_panic_hook = "0.1.7"
 gloo-net = { version = "0.6.0", default-features = false, features = ["http", "json"] }
 leptos = { version = "0.6.13", features = ["csr", "nightly"] }
@@ -13,7 +14,7 @@ leptos_meta = { version = "0.6.13", features = ["csr", "nightly"] }
 leptos_router = { version = "0.6.13", features = ["csr", "nightly"] }
 serde = { version = "1.0.204", features = ["derive"] }
 thiserror = "1.0.63"
-url = "2.5.2"
+url = { version = "2.5.2", features = ["serde"] }
 web-sys = { version = "0.3.69", features = ["RequestRedirect"] }
 
 

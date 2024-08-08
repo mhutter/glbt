@@ -1,4 +1,6 @@
 pub mod app;
+pub mod gitlab;
+pub mod pages;
 
 pub const APP: &str = concat!(
     env!("CARGO_PKG_NAME"),

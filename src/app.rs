@@ -1,15 +1,47 @@
+use codee::string::JsonSerdeCodec;
 use leptos::*;
-use leptos_meta::{provide_meta_context, Body, Stylesheet};
-use leptos_use::{use_color_mode, ColorMode, UseColorModeReturn};
+use leptos_meta::{provide_meta_context, Body};
+use leptos_router::{Route, Router, Routes};
+use leptos_use::{storage::use_local_storage, use_color_mode, ColorMode, UseColorModeReturn};
+
+use crate::pages::MergeRequests;
+
+use crate::{
+    gitlab::Gitlab,
+    pages::{Layout, Login},
+};
 
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+
+    // let (gitlab, set_gitlab) = create_signal(None);
+    let (gitlab, set_gitlab, _) = use_local_storage::<Option<Gitlab>, JsonSerdeCodec>("glbt-state");
+    let logout = move |()| set_gitlab(None);
+
     view! {
         <Theme/>
-        <div class="container">
-            <h1>"I works!"</h1>
-        </div>
+        <Router>
+            <Routes>
+                <Route
+                    path="/"
+                    view=move || {
+                        view! {
+                            <Show
+                                when=move || gitlab().is_some()
+                                fallback=move || view! { <Login set_gitlab/> }
+                            >
+                                <Layout gitlab=gitlab().unwrap() logout/>
+                            </Show>
+                        }
+                    }
+                >
+
+                    <Route path="/" view=MergeRequests/>
+                    <Route path="/*any" view=|| view! { <h1>"Not Found"</h1> }/>
+                </Route>
+            </Routes>
+        </Router>
         <Scripts/>
     }
 }
@@ -22,14 +54,7 @@ fn Theme() -> impl IntoView {
         _ => "light",
     };
 
-    view! {
-        <Body attr:data-bs-theme=theme/>
-        <Stylesheet
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-            attr:integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-            attr:crossorigin="anonymous"
-        />
-    }
+    view! { <Body attr:data-bs-theme=theme/> }
 }
 
 #[component]

@@ -144,6 +144,8 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af40247be877a1e3353fb406aa27ab3ef4bd3ff18cef91e75e667bfa3fde701d"
 dependencies = [
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -442,6 +444,7 @@ dependencies = [
 name = "glbt"
 version = "0.1.0"
 dependencies = [
+ "codee",
  "console_error_panic_hook",
  "gloo-net 0.6.0",
  "leptos",
@@ -1602,6 +1605,7 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
