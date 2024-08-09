@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 use leptos::*;
 
-use crate::gitlab::{Gitlab, MergeRequest, ID};
+use crate::{
+    components::Error,
+    gitlab::{Gitlab, MergeRequest, StateEvent, ID},
+};
 
 #[component]
 pub fn MergeRequests() -> impl IntoView {
@@ -10,7 +13,12 @@ pub fn MergeRequests() -> impl IntoView {
 
     let merge_requests = create_local_resource(
         || (),
-        move |()| async move { gitlab().get_open_mrs().await },
+        move |()| async move {
+            gitlab()
+                .get_open_mrs()
+                .await
+                .map(|mrs| mrs.into_iter().map(|mr| create_rw_signal(mr)).collect())
+        },
     );
 
     view! {
@@ -31,11 +39,11 @@ pub enum CheckboxState {
 }
 
 #[component]
-pub fn MergeRequestTable(merge_requests: Vec<MergeRequest>) -> impl IntoView {
+pub fn MergeRequestTable(merge_requests: Vec<RwSignal<MergeRequest>>) -> impl IntoView {
     let selected_ids = create_rw_signal(HashSet::new());
     let all_ids = merge_requests
         .iter()
-        .map(|mr| mr.id)
+        .map(|mr| mr.with(|mr| mr.id))
         .collect::<HashSet<_>>();
 
     let num_mrs = merge_requests.len();
@@ -67,6 +75,7 @@ pub fn MergeRequestTable(merge_requests: Vec<MergeRequest>) -> impl IntoView {
                     </th>
                     <th scope="col">"Title"</th>
                     <th scope="col">"Reference"</th>
+                    <th scope="col">"MR Status"</th>
                     <th scope="col">"CI Status"</th>
                     <th scope="col">"Actions"</th>
                 </tr>
@@ -84,9 +93,15 @@ pub fn MergeRequestTable(merge_requests: Vec<MergeRequest>) -> impl IntoView {
 }
 
 #[component]
-pub fn MergeRequest(mr: MergeRequest, selected_ids: RwSignal<HashSet<ID>>) -> impl IntoView {
+pub fn MergeRequest(
+    mr: RwSignal<MergeRequest>,
+    selected_ids: RwSignal<HashSet<ID>>,
+) -> impl IntoView {
+    let gitlab = use_context::<Signal<Gitlab>>().expect("Gitlab client provided");
+    let id = mr.with_untracked(|mr| mr.id);
+    let (error, set_error) = create_signal(None);
+
     let toggle_id = move || {
-        let id = mr.id;
         selected_ids.update(|ids| {
             if ids.contains(&id) {
                 ids.remove(&id);
@@ -96,31 +111,114 @@ pub fn MergeRequest(mr: MergeRequest, selected_ids: RwSignal<HashSet<ID>>) -> im
         });
     };
 
-    let selected = create_memo(move |_| selected_ids.with(|ids| ids.contains(&mr.id)));
+    let selected = create_memo(move |_| selected_ids.with(|ids| ids.contains(&id)));
+
+    let pipeline = create_local_resource(
+        || (),
+        move |()| async move {
+            gitlab()
+                .get_latest_mr_pipelines(&mr())
+                .await
+                .expect("pipeline status")
+        },
+    );
+
+    let update = create_action(move |state: &StateEvent| {
+        set_error(None);
+        let state = state.to_owned();
+        let inner = mr().to_owned();
+        async move {
+            match gitlab().update_mr(&inner, &state).await {
+                Ok(new_mr) => mr.set(new_mr),
+                Err(err) => set_error(Some(err)),
+            }
+        }
+    });
+    let merge = create_action(move |()| {
+        set_error(None);
+        let inner = mr().to_owned();
+        async move {
+            match gitlab().merge_mr(&inner).await {
+                Ok(new_mr) => mr.set(new_mr),
+                Err(err) => set_error(Some(err)),
+            }
+        }
+    });
 
     view! {
-        <tr class:table-active=selected on:click=move |_| toggle_id()>
+        <tr
+            role="button"
+            class="align-middle"
+            class:table-active=selected
+            on:click=move |_| toggle_id()
+        >
             <td>
                 <input type="checkbox" prop:checked=selected/>
             </td>
-            <td>{mr.title}</td>
+            <td>{move || mr().title}</td>
             <td>
-                <a target="_blank" href=mr.web_url>
-                    {mr.references.full}
+                <a on:click=|e| e.stop_propagation() target="_blank" href=move || mr().web_url>
+                    {move || mr().references.full}
                 </a>
             </td>
-            <td>"TODO"</td>
-            <td>"TODO"</td>
-        </tr>
-    }
-}
+            <td>{move || mr().status}</td>
+            <td>
+                {move || match pipeline() {
+                    Some(pipelines) => {
+                        pipelines.into_iter().map(|p| p.status.into_view()).collect_view()
+                    }
+                    None => view! { <p>"Loading..."</p> }.into_view(),
+                }}
 
-#[component]
-pub fn Error<E: ToString>(err: E) -> impl IntoView {
-    view! {
-        <div class="alert alert-danger" role="alert">
-            <h4>"Error"</h4>
-            <p>{err.to_string()}</p>
-        </div>
+            </td>
+            <td>
+                <div
+                    class="btn-group btn-group-sm"
+                    role="group"
+                    aria-label="Actions"
+                    on:click=|e| e.stop_propagation()
+                >
+                    <Show when=move || mr.with(|mr| mr.can_merge())>
+                        <button
+                            type="button"
+                            class="btn btn-success"
+                            on:click=move |_| merge.dispatch(())
+                        >
+                            "merge"
+                        </button>
+                    </Show>
+                    <Show when=move || mr.with(|mr| mr.can_close())>
+                        <button
+                            type="button"
+                            class="btn btn-danger"
+                            on:click=move |_| update.dispatch(StateEvent::Close)
+                        >
+                            "close"
+                        </button>
+                    </Show>
+                    <Show when=move || mr.with(|mr| mr.can_reopen())>
+                        <button
+                            type="button"
+                            class="btn btn-warning"
+                            on:click=move |_| update.dispatch(StateEvent::Reopen)
+                        >
+                            "reopen"
+                        </button>
+                    </Show>
+                </div>
+            </td>
+        </tr>
+        {move || {
+            error()
+                .map(|err| {
+                    view! {
+                        <tr>
+                            <td colspan="6">
+                                <Error err/>
+                            </td>
+                        </tr>
+                    }
+                })
+        }}
     }
 }
