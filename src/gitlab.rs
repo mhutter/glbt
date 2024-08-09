@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use gloo_net::http::Request;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -7,11 +7,13 @@ use web_sys::RequestRedirect;
 
 use crate::APP;
 
+pub type ID = i32;
+
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Gitlab {
-    #[serde(rename="u")]
+    #[serde(rename = "u")]
     url: Url,
-    #[serde(rename="t")]
+    #[serde(rename = "t")]
     authorization: String,
 }
 
@@ -24,17 +26,32 @@ impl Gitlab {
 
     /// Fetch the currently authenticated user
     pub async fn get_self(&self) -> Result<User, FetchError> {
-        self.get("user").await
+        self.get("user", []).await
+    }
+
+    pub async fn get_open_mrs(&self) -> Result<Vec<MergeRequest>, FetchError> {
+        self.get(
+            "merge_requests",
+            [
+                ("per_page", "200"),
+                ("scope", "all"),
+                ("state", "opened"),
+                ("wip", "no"),
+            ],
+        )
+        .await
     }
 
     /// Fetch a generic resource from the API.
     ///
     /// You likely want to use one of the convienience methods provided by [`Gitlab`] instead.
-    pub async fn get<T>(&self, path: &str) -> Result<T, FetchError>
+    pub async fn get<'a, T, Q>(&self, path: &str, query: Q) -> Result<T, FetchError>
     where
         T: DeserializeOwned,
+        Q: IntoIterator<Item = (&'static str, &'static str)>,
     {
         let res = Request::get(self.url.join(path).unwrap().as_str())
+            .query(query)
             .header("User-Agent", APP)
             .header("Authorization", &self.authorization)
             .redirect(RequestRedirect::Error)
@@ -60,24 +77,24 @@ pub enum NewGitlabError {
     UrlInvalid(#[from] url::ParseError),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum FetchError {
     #[error("Failed to send request: {0}")]
-    RequestFailed(#[source] gloo_net::Error),
+    RequestFailed(#[source] Rc<gloo_net::Error>),
 
     #[error("HTTP {status}: {body}")]
     HttpStatus { status: u16, body: String },
 
     #[error("Failed to deserialize Body: {0}")]
-    Json(#[source] gloo_net::Error),
+    Json(#[source] Rc<gloo_net::Error>),
 }
 
 impl FetchError {
     fn request(err: gloo_net::Error) -> Self {
-        Self::RequestFailed(err)
+        Self::RequestFailed(Rc::new(err))
     }
     fn json(err: gloo_net::Error) -> Self {
-        Self::Json(err)
+        Self::Json(Rc::new(err))
     }
 }
 
@@ -85,6 +102,22 @@ impl fmt::Display for Gitlab {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.url.host_str().expect("host").fmt(f)
     }
+}
+
+#[derive(Clone, Deserialize)]
+pub struct MergeRequest {
+    pub iid: ID,
+    pub id: ID,
+    pub project_id: ID,
+    pub title: String,
+    pub references: References,
+    pub sha: String,
+    pub web_url: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct References {
+    pub full: String,
 }
 
 #[derive(Deserialize)]

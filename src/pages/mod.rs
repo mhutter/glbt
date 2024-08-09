@@ -10,7 +10,7 @@ mod merge_requests;
 
 #[component]
 pub fn Layout(gitlab: Gitlab, #[prop(into)] logout: Callback<()>) -> impl IntoView {
-    provide_context(gitlab);
+    provide_context(Signal::from(move || gitlab.clone()));
 
     view! {
         <nav class="navbar navbar-expand bg-body-tertiary mb-3">
