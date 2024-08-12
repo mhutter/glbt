@@ -1,0 +1,5 @@
+services:
+  glbt:
+    build: .
+    ports:
+      - "127.0.0.1:2015:2015/tcp"
