@@ -1,10 +1,8 @@
-use std::collections::HashSet;
-
 use leptos::*;
 
 use crate::{
     components::Error,
-    gitlab::{Gitlab, MergeRequest, StateEvent, ID},
+    gitlab::{Gitlab, MergeRequest, StateEvent},
 };
 
 #[component]
@@ -40,39 +38,10 @@ pub enum CheckboxState {
 
 #[component]
 pub fn MergeRequestTable(merge_requests: Vec<RwSignal<MergeRequest>>) -> impl IntoView {
-    let selected_ids = create_rw_signal(HashSet::new());
-    let all_ids = merge_requests
-        .iter()
-        .map(|mr| mr.with(|mr| mr.id))
-        .collect::<HashSet<_>>();
-
-    let num_mrs = merge_requests.len();
-    let selected = create_memo(move |_| match selected_ids().len() {
-        0 => CheckboxState::Unchecked,
-        n if n == num_mrs => CheckboxState::Checked,
-        _ => CheckboxState::Indeterminate,
-    });
-
-    let set_all = move |v: bool| {
-        if v {
-            selected_ids.set(all_ids.clone());
-        } else {
-            selected_ids.set(HashSet::new());
-        }
-    };
-
     view! {
         <table class="table">
             <thead>
                 <tr>
-                    <th scope="col">
-                        <input
-                            type="checkbox"
-                            on:input=move |e| set_all(event_target_checked(&e))
-                            prop:checked=move || selected() == CheckboxState::Checked
-                            prop:indeterminate=move || selected() == CheckboxState::Indeterminate
-                        />
-                    </th>
                     <th scope="col">"Title"</th>
                     <th scope="col">"Reference"</th>
                     <th scope="col">"MR Status"</th>
@@ -84,7 +53,7 @@ pub fn MergeRequestTable(merge_requests: Vec<RwSignal<MergeRequest>>) -> impl In
                 {merge_requests
                     .into_iter()
                     .map(|mr| {
-                        view! { <MergeRequest mr selected_ids/> }
+                        view! { <MergeRequest mr/> }
                     })
                     .collect_view()}
             </tbody>
@@ -93,25 +62,9 @@ pub fn MergeRequestTable(merge_requests: Vec<RwSignal<MergeRequest>>) -> impl In
 }
 
 #[component]
-pub fn MergeRequest(
-    mr: RwSignal<MergeRequest>,
-    selected_ids: RwSignal<HashSet<ID>>,
-) -> impl IntoView {
+pub fn MergeRequest(mr: RwSignal<MergeRequest>) -> impl IntoView {
     let gitlab = use_context::<Signal<Gitlab>>().expect("Gitlab client provided");
-    let id = mr.with_untracked(|mr| mr.id);
     let (error, set_error) = create_signal(None);
-
-    let toggle_id = move || {
-        selected_ids.update(|ids| {
-            if ids.contains(&id) {
-                ids.remove(&id);
-            } else {
-                ids.insert(id);
-            }
-        });
-    };
-
-    let selected = create_memo(move |_| selected_ids.with(|ids| ids.contains(&id)));
 
     let pipeline = create_local_resource(
         || (),
@@ -146,14 +99,7 @@ pub fn MergeRequest(
     });
 
     view! {
-        <tr
-            class="align-middle"
-            class:table-active=selected
-            on:click=move |_| toggle_id()
-        >
-            <td>
-                <input type="checkbox" prop:checked=selected/>
-            </td>
+        <tr class="align-middle">
             <td>{move || mr().title}</td>
             <td>
                 <a on:click=|e| e.stop_propagation() target="_blank" href=move || mr().web_url>
