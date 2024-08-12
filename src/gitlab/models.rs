@@ -151,6 +151,7 @@ pub struct Pipeline {
     #[serde(rename = "ref")]
     pub references: String,
     pub status: PipelineStatus,
+    pub web_url: String,
 }
 
 /// The status of a Pipeline
@@ -203,6 +204,17 @@ impl PipelineStatus {
             Self::Manual => "manual",
             Self::Scheduled => "scheduled",
         }
+    }
+}
+
+impl IntoView for Pipeline {
+    fn into_view(self) -> View {
+        view! {
+            <a target="_blank" href=self.web_url>
+                {self.status}
+            </a>
+        }
+        .into_view()
     }
 }
 

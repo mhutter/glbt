@@ -147,7 +147,6 @@ pub fn MergeRequest(
 
     view! {
         <tr
-            role="button"
             class="align-middle"
             class:table-active=selected
             on:click=move |_| toggle_id()
@@ -164,9 +163,7 @@ pub fn MergeRequest(
             <td>{move || mr().status}</td>
             <td>
                 {move || match pipeline() {
-                    Some(pipelines) => {
-                        pipelines.into_iter().map(|p| p.status.into_view()).collect_view()
-                    }
+                    Some(pipelines) => pipelines.into_iter().map(|p| p.into_view()).collect_view(),
                     None => view! { <p>"Loading..."</p> }.into_view(),
                 }}
 
