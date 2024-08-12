@@ -184,7 +184,7 @@ impl PipelineStatus {
             Self::Success => Class::Success,
             Self::Failed => Class::Danger,
             Self::Canceled => Class::Warning,
-            Self::Skipped => Class::Warning,
+            Self::Skipped => Class::Secondary,
             Self::Manual => Class::Info,
             Self::Scheduled => Class::Info,
         }
@@ -211,8 +211,11 @@ impl IntoView for Pipeline {
     fn into_view(self) -> View {
         view! {
             <a target="_blank" href=self.web_url>
-                {self.status}
+                "#"
+                {self.id}
             </a>
+            " "
+            {self.status}
         }
         .into_view()
     }

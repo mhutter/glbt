@@ -109,7 +109,18 @@ pub fn MergeRequest(mr: RwSignal<MergeRequest>) -> impl IntoView {
             <td>{move || mr().status}</td>
             <td>
                 {move || match pipeline() {
-                    Some(pipelines) => pipelines.into_iter().map(|p| p.into_view()).collect_view(),
+                    Some(pipelines) => {
+                        view! {
+                            <ul class="list-unstyled mb-0">
+                                {pipelines
+                                    .into_iter()
+                                    .map(|p| view! { <li>{p}</li> })
+                                    .collect_view()}
+
+                            </ul>
+                        }
+                            .into_view()
+                    }
                     None => view! { <p>"Loading..."</p> }.into_view(),
                 }}
 
