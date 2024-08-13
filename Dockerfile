@@ -1,10 +1,4 @@
-FROM docker.io/library/rust:1-slim AS toolchain
-ENV RUSTUP_TOOLCHAIN=nightly
-COPY ./rust-toolchain.toml .
-RUN cargo install trunk --locked
-
-
-FROM toolchain AS build
+FROM ghcr.io/mhutter/trunk:v0.20.3 AS build
 WORKDIR /app
 COPY . .
 RUN trunk build --release --locked
