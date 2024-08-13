@@ -1,0 +1,11 @@
+.direnv/
+.envrc
+.git/
+.github/
+.gitignore
+.neoconf.json
+Dockerfile
+dist/
+flake.*
+rustfmt.toml
+target/

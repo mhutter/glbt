@@ -1,0 +1,10 @@
+services:
+  glbt:
+    image: "image-registry.openshift-image-registry.svc:5000/$NAMESPACE/$CI_PROJECT_NAME:$CI_COMMIT_REF_SLUG"
+    labels:
+      k8ify.expose: $CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG.apps.cloudscale-lpg-2.appuio.cloud
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.01"
+          memory: 256M

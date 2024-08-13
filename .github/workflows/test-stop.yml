@@ -1,0 +1,20 @@
+env:
+  KUBECONFIG: /tmp/github-ci.kubeconfig
+jobs:
+  stop:
+    environment: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup
+      with:
+        KUBECONFIG_DATA: "${{ secrets.KUBECONFIG_TEST }}"
+    - env: {}
+      name: k8ify stop
+      run: |
+        kubectl delete deployments,statefulsets,secrets,persistentvolumeclaims,ingresses,services,cronjobs,poddisruptionbudgets -l "k8ify.ref-slug=${CI_COMMIT_REF_SLUG}"
+        kubectl delete claim -l "k8ify.ref-slug=${CI_COMMIT_REF_SLUG}" || true
+name: Stop test
+"on":
+  delete: {}
+  workflow_dispatch: {}
